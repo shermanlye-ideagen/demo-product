@@ -111,6 +111,7 @@ jobs:
             --notes-file /tmp/ai-release-notes.md
 
       - name: Create JIRA Version
+        continue-on-error: true
         if: vars.ATLASSIAN_BASE_URL != ''
         env:
           ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
@@ -123,6 +124,7 @@ jobs:
             --base-url "$ATLASSIAN_BASE_URL"
 
       - name: Create Confluence Release Page
+        continue-on-error: true
         if: vars.ATLASSIAN_BASE_URL != ''
         env:
           ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
