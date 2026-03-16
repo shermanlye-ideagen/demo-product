@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: TenantRegistry
+product: demo-product
+
+tenants:
+  - name: starter-corp
+    tier: bronze
+    region: us-east-1
+    status: active
+    created_at: "2026-03-16"
+  - name: enterprise-inc
+    tier: silver
+    region: eu-west-1
+    status: active
+    created_at: "2026-03-16"

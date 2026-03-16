@@ -1,0 +1,19 @@
+# Lifecycle hooks — sandboxed, max 300s timeout, no secret access
+
+hooks:
+  pre_build:
+    - "echo 'Running pre-build checks...'"
+    - "python -m pytest tests/ -q"
+  post_build:
+    - "echo 'Build complete'"
+  pre_deploy:
+    staging:
+      - "echo 'Pre-deploy: running DB migrations on staging'"
+    production:
+      - "echo 'Pre-deploy: running DB migrations on production'"
+  post_deploy:
+    staging:
+      - "echo 'Post-deploy: running smoke tests on staging'"
+    production:
+      - "echo 'Post-deploy: running smoke tests on production'"
+      - "echo 'Post-deploy: sending deployment notification'"

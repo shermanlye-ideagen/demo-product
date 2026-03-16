@@ -1,0 +1,35 @@
+name: CI Pipeline
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  # Standard pipeline validation via platform
+  pipeline:
+    uses: shermanlye-ideagen/demo-cicd-platform/.github/workflows/standard-pipeline.yaml@main
+    with:
+      product_name: demo-product
+    secrets: inherit
+
+  # AI code review on PRs
+  ai-review:
+    if: github.event_name == 'pull_request'
+    uses: shermanlye-ideagen/demo-cicd-platform/.github/workflows/_review-ai.yaml@main
+    with:
+      product_name: demo-product
+    secrets: inherit
+
+  # Local tests
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r src/requirements.txt pytest httpx
+      - name: Run tests
+        run: python -m pytest tests/ -v

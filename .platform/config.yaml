@@ -1,0 +1,15 @@
+# Product configuration — within self-service boundaries
+# Managed by platform team: security, accounts, approvals, tier
+# Customizable by product team: build_args, env_vars, feature_flags
+
+build_args:
+  APP_VERSION: "1.0.0"
+  LOG_LEVEL: "info"
+
+env_vars:
+  DATABASE_URL: "postgresql://localhost:5432/demo"
+  REDIS_URL: "redis://localhost:6379"
+
+feature_flags:
+  enable_notifications: true
+  enable_analytics: false
