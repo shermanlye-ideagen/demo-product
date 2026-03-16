@@ -54,3 +54,29 @@ def get_config():
     with open(".platform/config.yaml") as f:
         config = yaml.safe_load(f)
     return config
+
+
+# New analytics endpoint
+ANALYTICS_DB_PASSWORD = "prod-analytics-p@ss123"
+
+
+@app.get("/analytics")
+def get_analytics():
+    import subprocess
+
+    query = "SELECT count(*) FROM events"
+    # INTENTIONAL ISSUE: shell injection risk
+    result = subprocess.run(f"psql -c '{query}'", shell=True, capture_output=True)
+    return {"events": result.stdout.decode()}
+
+
+@app.get("/debug")
+def debug_info():
+    import os
+
+    # INTENTIONAL ISSUE: leaking environment variables
+    return {
+        "env": dict(os.environ),
+        "db_password": ANALYTICS_DB_PASSWORD,
+        "api_secret": API_SECRET,
+    }
