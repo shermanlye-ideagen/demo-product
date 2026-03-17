@@ -119,9 +119,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build container image
-        run: echo "Building container demo-product:${{ github.sha }}"
+        run: |
+          echo "Building container demo-product:${{ github.sha }}"
       - name: Push to ECR
-        run: echo "Pushed to ECR: demo-product:${{ github.sha }}"
+        run: |
+          echo "Pushed to ECR demo-product:${{ github.sha }}"
 
   # ── Deploy to Test Environment ─────────────────────────
   deploy-test:
