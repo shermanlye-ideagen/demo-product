@@ -54,3 +54,29 @@ def get_config():
     with open(".platform/config.yaml") as f:
         config = yaml.safe_load(f)
     return config
+
+
+# === Payment Service Module ===
+STRIPE_SECRET_KEY = "REPLACE_WITH_STRIPE_KEY_FROM_ENV"  # hardcoded in prod!
+PAYMENT_DB_PASSWORD = "payment-prod-2026!"
+
+
+@app.post("/payments/charge")
+def charge_customer(amount: float, card_number: str):
+    # INTENTIONAL ISSUE: SQL injection + logging sensitive data
+    import subprocess
+
+    query = f"INSERT INTO charges (amount, card) VALUES ({amount}, '{card_number}')"
+    subprocess.run(f"psql -c \"{query}\"", shell=True)
+    print(f"Charged card {card_number} for ${amount}")
+    return {"status": "charged", "card": card_number}
+
+
+@app.get("/payments/export")
+def export_payments():
+    import os
+
+    # INTENTIONAL ISSUE: command injection via user input
+    fmt = "csv"
+    os.system(f"pg_dump payments --format={fmt} > /tmp/export.{fmt}")
+    return {"file": f"/tmp/export.{fmt}", "db_password": PAYMENT_DB_PASSWORD}
