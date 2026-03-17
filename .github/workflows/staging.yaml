@@ -1,0 +1,13 @@
+name: Staging Pipeline
+on:
+  workflow_run:
+    workflows: ["Perf Pipeline"]
+    types: [completed]
+    branches: [main]
+jobs:
+  staging:
+    if: github.event.workflow_run.conclusion == 'success'
+    uses: shermanlye-ideagen/demo-cicd-platform/.github/workflows/staging-pipeline.yaml@main
+    with:
+      product_name: "demo-product"
+    secrets: inherit
