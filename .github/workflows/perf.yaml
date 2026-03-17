@@ -5,8 +5,14 @@ on:
     types: [completed]
     branches: [main]
 jobs:
-  perf:
+  gate:
+    name: Check Standard Pipeline
+    runs-on: ubuntu-latest
     if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - run: echo "Standard Pipeline passed — triggering Perf Pipeline"
+  perf:
+    needs: gate
     uses: shermanlye-ideagen/demo-cicd-platform/.github/workflows/perf-pipeline.yaml@main
     with:
       product_name: "demo-product"
