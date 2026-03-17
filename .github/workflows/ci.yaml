@@ -6,9 +6,24 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+
 jobs:
   pipeline:
     uses: shermanlye-ideagen/demo-cicd-platform/.github/workflows/standard-pipeline.yaml@main
     with:
       product_name: "demo-product"
     secrets: inherit
+
+  trigger-deploy:
+    name: Trigger Deploy Pipeline
+    needs: pipeline
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger platform deploy
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PLATFORM_DISPATCH_TOKEN }}
+          repository: shermanlye-ideagen/demo-cicd-platform
+          event-type: deploy-product
+          client-payload: '{"product": "demo-product", "image": "demo-product:${{ github.sha }}", "commit_sha": "${{ github.sha }}", "triggered_by": "${{ github.actor }}"}'
