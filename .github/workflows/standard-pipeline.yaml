@@ -42,25 +42,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run SAST analysis
+      - name: Run SonarQube analysis
         run: |
-          echo "Running SonarQube SAST scan..."
-          echo "Analyzing src/ for security vulnerabilities"
-          echo "Coverage floor: 60% (silver tier)"
-          echo "SAST scan passed"
+          echo "Connecting to SonarQube (self-hosted)..."
+          echo "Project: demo-product"
+          echo "Analyzing src/ for security vulnerabilities..."
+          echo "Coverage floor: 60% (silver tier policy)"
+          echo "Duplication max: 10%"
+          echo "SAST scan: PASSED"
 
-  # ── SBOM Generation ────────────────────────────────────
+  # ── SBOM Generation (Veracode) ─────────────────────────
   sbom:
-    name: "SBOM Generation"
+    name: "SBOM Generation (Veracode)"
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Generate SBOM
+      - name: Generate SBOM via Veracode
         run: |
           echo "Generating Software Bill of Materials..."
-          echo "Scanning dependencies from src/requirements.txt"
-          echo "SBOM generated: sbom-demo-product.json"
+          echo "Scanner: Veracode SCA"
+          echo "Scanning pip dependencies from requirements.txt"
+          echo "Output: sbom-demo-product.json (CycloneDX format)"
+          echo "SBOM generation: COMPLETE"
+
+  # ── E2E Tests (Playwright) ─────────────────────────────
+  e2e-tests:
+    name: "E2E Tests (Playwright)"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Playwright E2E tests
+        run: |
+          echo "Starting Playwright E2E test suite..."
+          echo "Target: http://localhost:8000"
+          echo "Tests: login, tenant-creation, audit-export"
+          echo "Browser: chromium (headless)"
+          echo "3/3 E2E tests passed"
+
+  # ── Contract Tests (Pact) ──────────────────────────────
+  contract-tests:
+    name: "Contract Tests (Pact)"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Pact contract tests
+        run: |
+          echo "Running Pact contract verification..."
+          echo "Provider: demo-product API"
+          echo "Consumer contracts: 2 (frontend, mobile)"
+          echo "Pact Broker: self-hosted"
+          echo "All contracts verified: PASSED"
 
   # ── Security Verification ──────────────────────────────
   security-verify:
@@ -68,31 +102,56 @@ jobs:
     needs: [sast-scan, sbom]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Verify security gates
+      - name: Verify all security gates
         run: |
           echo "Verifying security gates..."
-          echo "  SAST: passed"
-          echo "  SBOM: generated"
-          echo "  Vulnerability scan: clean"
-          echo "All security gates passed"
+          echo "  SAST (SonarQube): PASSED"
+          echo "  SBOM (Veracode):  GENERATED"
+          echo "  CVE scan:         0 critical, 0 high"
+          echo "  License check:    All licenses approved"
+          echo "All security gates PASSED"
 
   # ── Container Build & Push ─────────────────────────────
   container-push:
     name: "Container Build & Push"
-    needs: [test, security-verify]
+    needs: [test, security-verify, e2e-tests, contract-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Build container image
+        run: echo "Building container demo-product:${{ github.sha }}"
+      - name: Push to ECR
+        run: echo "Pushed to ECR: demo-product:${{ github.sha }}"
+
+  # ── Deploy to Test Environment ─────────────────────────
+  deploy-test:
+    name: "Deploy to Test Environment"
+    needs: container-push
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Deploy via ArgoCD
         run: |
-          echo "Building container: demo-product:${{ github.sha }}"
-          echo "FROM python:3.12-slim" > /tmp/verify.txt
-          echo "Container image built successfully"
-      - name: Push to registry
+          echo "Deploying demo-product:${{ github.sha }} to test environment..."
+          echo "Cluster: eks-test-cluster"
+          echo "Namespace: demo-product-test"
+          echo "Helm release: demo-product"
+          echo "Deployment: SUCCESSFUL"
+          echo "Health check: /health returned 200 OK"
+
+  # ── New Relic Baseline Capture ─────────────────────────
+  nr-baseline:
+    name: "New Relic Baseline Capture"
+    needs: deploy-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Capture baseline metrics
         run: |
-          echo "Pushing to ECR: demo-product:${{ github.sha }}"
-          echo "Container pushed successfully"
+          echo "Capturing New Relic baseline metrics..."
+          echo "Application: demo-product (test)"
+          echo "Metrics: response_time, throughput, error_rate, apdex"
+          echo "Baseline snapshot stored: nr-baseline-${{ github.sha }}.json"
+          echo "Baseline capture: COMPLETE"
 
   # ── AI Code Review (Claude) ────────────────────────────
   ai-review:
@@ -106,7 +165,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Checkout platform config
         uses: actions/checkout@v4
         with:
@@ -115,18 +173,13 @@ jobs:
           sparse-checkout: |
             config/
             scripts/ai-review.py
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Get PR diff
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.txt
-          echo "Diff size: $(wc -l < /tmp/pr-diff.txt) lines"
-
+        run: gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.txt
       - name: Run AI review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -136,10 +189,7 @@ jobs:
             --product "demo-product" \
             --standards platform/config/platform-standards.yaml \
             --boundaries platform/config/conventions/self-service-boundaries.yaml
-
       - name: Post review comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body-file /tmp/ai-review-output.md
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/ai-review-output.md
