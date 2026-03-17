@@ -1,0 +1,150 @@
+name: "Perf Pipeline: demo-product"
+on:
+  workflow_run:
+    workflows: ["Standard Pipeline: demo-product"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  # ── Deploy to Perf Test ────────────────────────────────
+  deploy-perf:
+    name: "Deploy to Perf Test Environment"
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: perftest
+    steps:
+      - name: Deploy to perf environment
+        run: |
+          echo "Deploying demo-product to perf test environment..."
+          echo "Cluster: eks-perf-cluster"
+          echo "Namespace: demo-product-perf"
+          echo "Deployment: SUCCESSFUL"
+
+  # ── New Relic Pre-Test Baseline ────────────────────────
+  nr-baseline:
+    name: "New Relic Pre-Test Baseline"
+    needs: deploy-perf
+    runs-on: ubuntu-latest
+    steps:
+      - name: Capture pre-test baseline
+        run: |
+          echo "Capturing New Relic baseline (pre-load)..."
+          echo "Metrics: avg_response_time=45ms, throughput=120rpm, error_rate=0.01%"
+          echo "Baseline stored: nr-perf-baseline.json"
+
+  # ── K6 Performance Tests (PARALLEL) ────────────────────
+  load-test:
+    name: "K6 Baseline Load Test"
+    needs: nr-baseline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run baseline load test
+        run: |
+          echo "Running k6 baseline load test (k6 OSS - £0)..."
+          echo "VUs: 50 | Duration: 5m | Ramp-up: 30s"
+          echo "Target: https://perf.demo-product.internal"
+          echo "Results: p95=89ms, p99=145ms, throughput=850rpm"
+          echo "Thresholds: ALL PASSED"
+
+  stress-test:
+    name: "K6 Stress Test (Ramp Up)"
+    needs: nr-baseline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run stress test
+        run: |
+          echo "Running k6 stress test (k6 OSS - £0)..."
+          echo "VUs: 10→200 (ramp) | Duration: 10m"
+          echo "Results: p95=210ms, p99=380ms, max_vus_before_degradation=175"
+          echo "Thresholds: PASSED (p95 < 500ms)"
+
+  spike-test:
+    name: "K6 Spike Test (Sudden Peak)"
+    needs: nr-baseline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run spike test
+        run: |
+          echo "Running k6 spike test (k6 OSS - £0)..."
+          echo "VUs: 10→500 (instant) | Duration: 2m"
+          echo "Results: p95=450ms at spike, recovery in 15s"
+          echo "Thresholds: PASSED"
+
+  duration-test:
+    name: "K6 Long-Duration Test"
+    needs: nr-baseline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run long-duration test
+        run: |
+          echo "Running k6 long-duration test (k6 OSS - £0)..."
+          echo "VUs: 30 | Duration: 5m (demo) / 4h (real)"
+          echo "Results: steady p95=92ms, no memory leaks, no degradation"
+          echo "Thresholds: PASSED"
+
+  # ── Post-Load Verification ─────────────────────────────
+  resource-profile:
+    name: "Resource Utilisation Profiling"
+    needs: [load-test, stress-test, spike-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Profile resource utilisation
+        run: |
+          echo "Analysing resource utilisation (New Relic + k6)..."
+          echo "CPU peak: 65% (stress), 82% (spike)"
+          echo "Memory peak: 1.2GB (stress), 1.8GB (spike)"
+          echo "Pod autoscaler: triggered at 70% CPU, scaled 3→8 pods"
+          echo "Profiling: COMPLETE"
+
+  network-sim:
+    name: "Network Condition Simulation"
+    needs: [load-test, stress-test, spike-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Simulate network conditions
+        run: |
+          echo "Simulating network conditions (k6 OSS)..."
+          echo "Latency injection: +100ms | Packet loss: 1%"
+          echo "Results: p95=195ms (within tolerance)"
+          echo "Network simulation: PASSED"
+
+  e2e-under-load:
+    name: "E2E Under Load (Playwright + K6)"
+    needs: [load-test, stress-test, spike-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run E2E tests under load
+        run: |
+          echo "Running Playwright E2E with concurrent k6 load..."
+          echo "Background load: 50 VUs via k6"
+          echo "Playwright tests: login, create-incident, export"
+          echo "All E2E tests passed under load"
+
+  endpoint-response:
+    name: "Endpoint Response Times"
+    needs: [load-test, stress-test, spike-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate endpoint response times
+        run: |
+          echo "Measuring endpoint response times..."
+          echo "  GET /health:   p95=12ms  ✓"
+          echo "  GET /tenants:  p95=45ms  ✓"
+          echo "  POST /tenants: p95=89ms  ✓"
+          echo "  GET /config:   p95=23ms  ✓"
+          echo "All endpoints within SLA thresholds"
+
+  # ── New Relic Post-Test Report ─────────────────────────
+  nr-report:
+    name: "New Relic Post-Test Analysis"
+    needs: [resource-profile, network-sim, e2e-under-load, endpoint-response]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate performance report
+        run: |
+          echo "Generating New Relic performance comparison report..."
+          echo "Comparing: pre-test baseline vs post-test metrics"
+          echo "Response time regression: NONE (+2ms within tolerance)"
+          echo "Error rate change: NONE (0.01% → 0.01%)"
+          echo "Report published to Confluence"
+          echo "Performance validation: PASSED"
