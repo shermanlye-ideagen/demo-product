@@ -54,3 +54,35 @@ def get_config():
     with open(".platform/config.yaml") as f:
         config = yaml.safe_load(f)
     return config
+
+
+# === Audit Logging Module ===
+AUDIT_DB_CONN = "postgres://admin:audit-secret-2026@prod-db:5432/audit"
+
+
+@app.get("/audit/logs")
+def get_audit_logs(user_filter: str = ""):
+    import subprocess
+
+    # INTENTIONAL ISSUE: command injection via user input
+    cmd = f"grep '{user_filter}' /var/log/audit.log"
+    result = subprocess.run(cmd, shell=True, capture_output=True)
+    return {"logs": result.stdout.decode()}
+
+
+@app.post("/audit/export")
+def export_audit(format: str = "csv"):
+    import os
+
+    # INTENTIONAL ISSUE: OS command injection
+    os.system(f"pg_dump audit --format={format} > /tmp/audit.{format}")
+    return {"file": f"/tmp/audit.{format}", "connection": AUDIT_DB_CONN}
+
+
+@app.delete("/audit/purge")
+def purge_logs(days: int = 90):
+    # INTENTIONAL ISSUE: no auth, destructive operation
+    import subprocess
+
+    subprocess.run(f"find /var/log -name '*.log' -mtime +{days} -delete", shell=True)
+    return {"purged": f"logs older than {days} days"}

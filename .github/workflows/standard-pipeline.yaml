@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r src/requirements.txt
       - name: Verify build
-        run: python -c "from src.app import app; print(f'Build OK: {app.title} {app.version}')"
+        run: python -c "from src.app import app; print('Build OK:', app.title, app.version)"
 
   # ── Unit Tests ─────────────────────────────────────────
   test:
